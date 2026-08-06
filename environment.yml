@@ -1,0 +1,51 @@
+# conda env create -f environment.yml && conda activate frangieh_gxe
+# Tested target: macOS arm64 (Apple Silicon). conda-forge has native builds for
+# everything here; no Rosetta needed.
+name: frangieh_gxe
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.11
+
+  # --- core single-cell stack ---
+  - anndata>=0.10
+  - scanpy>=1.10
+  - mudata>=0.2.3
+  - muon>=0.1.6
+  - scipy>=1.11
+  - numpy>=1.26
+  - pandas>=2.1
+  - scikit-learn>=1.4
+  - statsmodels>=0.14
+  - h5py
+  - numba
+  - igraph
+  - leidenalg
+
+  # --- plotting ---
+  - matplotlib-base>=3.8
+  - seaborn>=0.13
+  - adjusttext
+
+  # --- notebooks / tooling ---
+  - jupyterlab
+  - ipywidgets
+  - pyyaml
+  - tqdm
+  - session-info
+  - black
+  - ruff
+  - nbstripout
+
+  - pip
+  - pip:
+      # pertpy: E-distance, mixscape, perturbation spaces, dataset loaders.
+      # This is the package that makes the project Python rather than R.
+      - pertpy>=0.9
+      - pydeseq2>=0.4.10
+      - decoupler>=1.6
+      - gseapy>=1.1
+      - scikit-misc          # for scanpy's seurat_v3 HVG flavour

@@ -1,0 +1,177 @@
+# =============================================================================
+# perturb-cite-seq-frangieh2021-gxe
+# Master configuration
+#
+# Frangieh et al. 2021, Nat Genet 53:332-341
+# doi:10.1038/s41588-021-00779-1
+#
+# Central question: which CRISPR-KO perturbations have CONDITION-DEPENDENT
+# effects (gene x environment), and do those effects appear at the protein
+# level?
+#
+# NOTE ON SCHEMA KEYS: the `schema:` block below records the .obs column names
+# in the scPerturb-harmonised h5ads. These are ASSUMED and MUST be verified in
+# notebook 01 (there is a schema-discovery cell that prints the real columns).
+# Fix them here once, and every downstream notebook follows. Do not hard-code
+# column names in notebooks.
+# =============================================================================
+
+project:
+  name: perturb-cite-seq-frangieh2021-gxe
+  seed: 42
+  # All paths below are resolved relative to the repo root by src/config.py
+  paths:
+    data_raw: data/raw
+    data_interim: data/interim
+    data_processed: data/processed
+    figures: results/figures
+    tables: results/tables
+
+# -----------------------------------------------------------------------------
+# Data acquisition
+# scPerturb harmonised h5ads (Peidli et al. 2024, Nat Methods)
+# Zenodo record 10044268. Original deposit: Broad Single Cell Portal SCP1064.
+# -----------------------------------------------------------------------------
+data:
+  source: scperturb_zenodo
+  zenodo_record: "10044268"
+  files:
+    rna:
+      url: https://zenodo.org/record/10044268/files/FrangiehIzar2021_RNA.h5ad?download=1
+      filename: FrangiehIzar2021_RNA.h5ad
+    protein:
+      url: https://zenodo.org/record/10044268/files/FrangiehIzar2021_protein.h5ad?download=1
+      filename: FrangiehIzar2021_protein.h5ad
+  # Alternative loader if you would rather not manage downloads yourself:
+  #   import pertpy as pt
+  #   rna = pt.data.frangieh_2021_rna()
+  #   adt = pt.data.frangieh_2021_protein()
+
+# -----------------------------------------------------------------------------
+# .obs / .var schema  -- VERIFY IN NOTEBOOK 01 BEFORE TRUSTING
+# -----------------------------------------------------------------------------
+schema:
+  obs:
+    perturbation: perturbation        # target gene symbol, or control label
+    condition: condition              # control / IFNg / co-culture
+    n_perturbations: nperts           # guides per cell; expect 1 (low MOI)
+    n_counts: ncounts
+    n_genes: ngenes
+    percent_mito: percent_mito
+  # Value of obs[perturbation] marking non-targeting / control cells.
+  control_label: control
+  # Expected condition levels. The reference level is the baseline that IFNg
+  # and co-culture are each compared against.
+  conditions:
+    reference: Control
+    levels:
+      - Control
+      - IFNg
+      - Co-culture
+
+# -----------------------------------------------------------------------------
+# Notebook 01 -- QC and cell filtering
+# Thresholds are DELIBERATELY permissive: scPerturb already applied a uniform
+# QC pass. Tighten only with a plot justifying it.
+# -----------------------------------------------------------------------------
+qc:
+  min_genes_per_cell: 200
+  min_cells_per_gene: 10
+  max_pct_mito: 20
+  # Perturbations with fewer than this many cells IN A GIVEN CONDITION are
+  # dropped for that condition only. Underpowered arms produce spurious
+  # "context-dependent" hits -- this is the single most important QC knob.
+  min_cells_per_perturbation_per_condition: 30
+  # Drop cells assigned more than one guide (expect low MOI design).
+  drop_multi_guide_cells: true
+
+# -----------------------------------------------------------------------------
+# Notebook 02 -- condition-stratified pseudobulk DE
+# Every contrast is perturbation-vs-CONDITION-MATCHED-CONTROL. Never pool
+# controls across conditions: IFNg and TIL co-culture shift the baseline
+# enormously and pooling would manufacture effects.
+# -----------------------------------------------------------------------------
+de:
+  method: pydeseq2                  # pydeseq2 | wilcoxon | t-test_overestim_var
+  # Pseudoreplication: split each perturbation x condition group into N
+  # pseudo-replicates so DESeq2 has within-group variance to estimate.
+  # (The data has no true biological replicates -- be explicit about this in
+  # the README limitations section.)
+  n_pseudoreplicates: 3
+  min_cells_per_pseudoreplicate: 10
+  independent_filter_min_counts: 10
+  alpha: 0.05
+  lfc_shrink: true
+  # Genes used to build the signature matrix in nb03. hvg = highly variable
+  # genes computed on control cells only (avoids selecting on the effect).
+  signature_gene_set: hvg
+  n_hvg: 2000
+
+# -----------------------------------------------------------------------------
+# Notebook 03 -- context dependence
+# -----------------------------------------------------------------------------
+context:
+  # E-distance: nonparametric perturbation effect size (Peidli et al. 2024).
+  # Answers "did this perturbation do ANYTHING in this condition", independent
+  # of any DE model.
+  edistance:
+    obsm_key: X_pca
+    n_pcs: 50
+    n_permutations: 1000
+    subsample_cells_per_group: 500   # null if you want all cells; slow
+  # A perturbation is called context-dependent if its signature correlates
+  # poorly across conditions AND it is a real effect in at least one.
+  call_thresholds:
+    min_edistance_significance: 0.05   # permutation p-value
+    max_cross_condition_pearson: 0.4   # signatures diverge between conditions
+  clustering:
+    method: leiden
+    resolution: 1.0
+    n_neighbors: 15
+
+# -----------------------------------------------------------------------------
+# Notebook 04 -- protein layer
+# -----------------------------------------------------------------------------
+protein:
+  normalization: clr               # centered log-ratio, per-cell (margin=0)
+  clr_margin: 0
+  # Minimum |log2FC| in ADT space to call a protein-level move.
+  min_adt_lfc: 0.25
+  # ADT<->RNA pairs live in config/panels.yaml
+
+# -----------------------------------------------------------------------------
+# Notebook 05 -- guide abundance / selection readout
+# In the TIL co-culture arm cells are under selection: immune-evasion
+# perturbations should be ENRICHED, sensitisers DEPLETED, relative to control.
+# This is a pooled-screen fitness readout computed from the same object.
+# -----------------------------------------------------------------------------
+selection:
+  method: fisher_exact             # fisher_exact | betabinom
+  pseudocount: 1
+  fdr_method: fdr_bh
+  fdr_alpha: 0.1
+  # Compare the fitness readout against the transcriptional readout in nb05.
+  # These are NOT the same phenotype and the disagreements are the interesting
+  # part.
+
+# -----------------------------------------------------------------------------
+# Plotting
+# -----------------------------------------------------------------------------
+plotting:
+  dpi: 300
+  format: png
+  figsize_default: [6, 4.5]
+  cmap_diverging: RdBu_r
+  cmap_sequential: viridis
+  condition_colors:
+    Control: "#7f7f7f"
+    IFNg: "#d62728"
+    Co-culture: "#1f77b4"
+
+# -----------------------------------------------------------------------------
+# Explicitly OUT OF SCOPE (future work -- do not build here)
+# -----------------------------------------------------------------------------
+out_of_scope:
+  - Perturbation-response prediction models (GEARS, CPA, scGen). Separate project.
+  - Cross-dataset integration with Norman 2019. Separate project.
+  - Causal / GRN inference from interventional data.

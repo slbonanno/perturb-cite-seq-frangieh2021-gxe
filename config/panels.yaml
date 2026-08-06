@@ -1,0 +1,96 @@
+# =============================================================================
+# ADT panel definition and pathway gene sets
+#
+# !! THE adt_to_rna MAP BELOW IS A STUB !!
+# The 20-plex panel members must be read off adt.var_names in notebook 01.
+# nb01 writes the observed panel to config/panels_observed.yaml; reconcile it
+# with this file and commit the result. Do not guess antibody clones.
+# =============================================================================
+
+adt:
+  # Map ADT feature name -> the RNA gene symbol(s) encoding that protein.
+  # Populate from adt.var_names in nb01. Several ADT features map to gene
+  # FAMILIES (e.g. an MHC-I antibody may detect HLA-A, -B and -C), which is
+  # exactly the kind of many-to-one mapping that makes naive RNA-vs-protein
+  # correlation misleading -- handle it explicitly rather than by string match.
+  adt_to_rna: {}
+    # Example of the intended shape once populated:
+    # CD58: [CD58]
+    # HLA-ABC: [HLA-A, HLA-B, HLA-C]
+    # PD-L1: [CD274]
+
+  # Markers to foreground in nb04 regardless of what the screen ranks highest.
+  # These are the paper's mechanistic backbone and serve as positive controls
+  # for the RNA/protein discordance analysis.
+  markers_of_interest:
+    - CD58        # headline finding: protein NOT IFNg-induced, MHC intact
+    - HLA-ABC     # MHC-I surface presentation
+    - PD-L1       # canonical IFNg-induced checkpoint ligand
+    - HLA-DR      # MHC-II, if present in panel
+
+# -----------------------------------------------------------------------------
+# Pathway gene sets for nb02/nb03 scoring.
+# Kept small and hand-curated on purpose: these are the pathways with a strong
+# prior in this system, so recovering them is a sanity check, not a discovery.
+# Broader enrichment (GSEA / decoupler) runs against MSigDB in nb03.
+# -----------------------------------------------------------------------------
+gene_sets:
+  ifng_jak_stat:
+    - IFNGR1
+    - IFNGR2
+    - JAK1
+    - JAK2
+    - STAT1
+    - STAT2
+    - IRF1
+    - IRF9
+    - SOCS1
+    - GBP1
+    - GBP2
+
+  antigen_presentation_mhc_i:
+    - B2M
+    - HLA-A
+    - HLA-B
+    - HLA-C
+    - TAP1
+    - TAP2
+    - TAPBP
+    - NLRC5
+    - PSMB8
+    - PSMB9
+    - CALR
+    - CANX
+
+  immune_checkpoint_ligands:
+    - CD274      # PD-L1
+    - PDCD1LG2   # PD-L2
+    - CD58
+    - CD47
+    - LGALS9
+
+  # Melanoma cell-state axes -- useful for asking whether a perturbation moves
+  # cells along a differentiation axis rather than an immune axis.
+  melanoma_state:
+    melanocytic:
+      - MITF
+      - PMEL
+      - TYR
+      - DCT
+      - MLANA
+    mesenchymal_like:
+      - AXL
+      - NGFR
+      - SOX9
+      - WNT5A
+
+# -----------------------------------------------------------------------------
+# MSigDB collections pulled via decoupler/gseapy in nb03
+# -----------------------------------------------------------------------------
+msigdb:
+  collections:
+    - hallmark
+    - reactome
+  organism: human
+  min_set_size: 10
+  max_set_size: 500

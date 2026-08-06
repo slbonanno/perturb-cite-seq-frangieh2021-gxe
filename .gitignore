@@ -1,0 +1,31 @@
+# --- data: never commit. Everything is re-derivable from config + scripts. ---
+data/raw/*
+data/interim/*
+data/processed/*
+!data/**/.gitkeep
+
+# --- results: figures/tables are regenerable; commit selectively if at all ---
+results/figures/*
+results/tables/*
+!results/**/.gitkeep
+
+# --- schema file written by nb01; commit AFTER reconciling with panels.yaml ---
+config/panels_observed.yaml
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+env/
+
+# --- caches ---
+.cache/
+.pertpy_cache/
+.scanpy_cache/
+
+# --- os / editor ---
+.DS_Store
+.vscode/
+.idea/
