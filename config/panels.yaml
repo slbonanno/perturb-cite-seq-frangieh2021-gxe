@@ -8,25 +8,36 @@
 # =============================================================================
 
 adt:
-  # Map ADT feature name -> the RNA gene symbol(s) encoding that protein.
-  # Populate from adt.var_names in nb01. Several ADT features map to gene
-  # FAMILIES (e.g. an MHC-I antibody may detect HLA-A, -B and -C), which is
-  # exactly the kind of many-to-one mapping that makes naive RNA-vs-protein
-  # correlation misleading -- handle it explicitly rather than by string match.
-  adt_to_rna: {}
-    # Example of the intended shape once populated:
-    # CD58: [CD58]
-    # HLA-ABC: [HLA-A, HLA-B, HLA-C]
-    # PD-L1: [CD274]
+  isotype_controls: [Rat_IgG2a, Mouse_IgG1, Mouse_IgG2a, Mouse_IgG2b]
 
-  # Markers to foreground in nb04 regardless of what the screen ranks highest.
-  # These are the paper's mechanistic backbone and serve as positive controls
-  # for the RNA/protein discordance analysis.
-  markers_of_interest:
-    - CD58        # headline finding: protein NOT IFNg-induced, MHC intact
-    - HLA-ABC     # MHC-I surface presentation
-    - PD-L1       # canonical IFNg-induced checkpoint ligand
-    - HLA-DR      # MHC-II, if present in panel
+  adt_to_rna:
+    CD117:  [KIT]
+    CD119:  [IFNGR1]
+    CD140a: [PDGFRA]
+    CD140b: [PDGFRB]
+    CD172a: [SIRPA]
+    CD184:  [CXCR4]
+    CD202b: [TEK]
+    CD274:  [CD274]                    # PD-L1
+    CD29:   [ITGB1]
+    CD309:  [KDR]
+    CD44:   [CD44]
+    CD47:   [CD47]
+    CD49f:  [ITGA6]
+    CD58:   [CD58]
+    CD59:   [CD59]
+    CD61:   [ITGB3]
+    CD9:    [CD9]
+    CD279:  [PDCD1]                    # PD-1; T cell marker, treat as contamination diagnostic
+    HLA_A:  [HLA-A, HLA-B, HLA-C]      # clone W6/32 = pan-MHC-I, NOT HLA-A alone
+    HLA_E:  [HLA-E]
+
+  # Epitopes requiring B2M for surface presentation. Loss of signal here on a
+  # B2M perturbation is an assembly effect, not post-transcriptional regulation
+  # of the heavy chain. Flag these separately in the nb04 quadrant analysis.
+  b2m_dependent: [HLA_A, HLA_E]
+
+  markers_of_interest: [CD58, HLA_A, HLA_E, CD274, CD119]
 
 # -----------------------------------------------------------------------------
 # Pathway gene sets for nb02/nb03 scoring.

@@ -52,22 +52,23 @@ data:
 # -----------------------------------------------------------------------------
 schema:
   obs:
-    perturbation: perturbation        # target gene symbol, or control label
-    condition: condition              # control / IFNg / co-culture
-    n_perturbations: nperts           # guides per cell; expect 1 (low MOI)
+    perturbation: perturbation
+    condition: perturbation_2        # NOT "condition"
+    n_perturbations: nperts
     n_counts: ncounts
     n_genes: ngenes
     percent_mito: percent_mito
-  # Value of obs[perturbation] marking non-targeting / control cells.
-  control_label: control
-  # Expected condition levels. The reference level is the baseline that IFNg
-  # and co-culture are each compared against.
+    percent_ribo: percent_ribo
+    guide: sgRNA                     # guide-level ID, 819 guides
+    guide_id: guide_id
+    moi: MOI
+  control_label: control             # VERIFY — see below
   conditions:
-    reference: Control
+    reference: "Control"
     levels:
-      - Control
-      - IFNg
-      - Co-culture
+      - "Control"
+      - "IFNγ"                       # U+03B3, not "IFNg"
+      - "Co-culture"
 
 # -----------------------------------------------------------------------------
 # Notebook 01 -- QC and cell filtering
