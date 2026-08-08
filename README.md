@@ -1,34 +1,33 @@
 # perturb-cite-seq-frangieh2021-gxe
 
-Reanalysis of **Frangieh et al. 2021** Perturb-CITE-seq asking a
-gene-by-environment question: *which CRISPR knockouts change what they do
-depending on immune context, and do those changes show up at the protein
-level?*
+Reanalysis of **Frangieh et al. 2021** Perturb-CITE-seq on a patient-derived melanoma cell line x stimuli.
 
 > Frangieh CJ, Melms JC, Thakore PI, et al. Multimodal pooled Perturb-CITE-seq
 > screens in patient models define mechanisms of cancer immune evasion.
 > *Nature Genetics* 53:332–341 (2021). doi:10.1038/s41588-021-00779-1
 
----
+#### Experimental Design:
+- **248 CRISPR-KO targets** immune-checkpoint-resistance / ICR program
+   - **~744 targeting guides** (~3 guides/gene)
+   - **74 control guides** (37 non-targeting + 37 intergenic)
+- **virus, MOI ~0.1** each infected cell receives one guide
+- **puromycin selection, transduced cells**
+- **3 environmental arms:** Control, IFNg-treated, autologous TIL co-culture
+- **readout:** scRNA-seq, 20 ADT panel
 
-## The question
+#### Processed Dataset:
+- **~218k cells~** immune-checkpoint-resistance / ICR program
 
-Classical Perturb-seq analysis asks about perturbation × perturbation
-interaction — epistasis. This dataset supports a different second axis.
-~218,000 patient-derived melanoma cells carry knockouts of 248 genes, and each
-cell sits in one of three environments: unstimulated control, IFN-γ
-stimulation, or co-culture with autologous tumour-infiltrating lymphocytes.
+#### Data Exploration:
+The interaction of interest is KO target × environment.
+How do expression profiles (and ADT signal) differ, from cells targeted by same guide
+but in each context: control, IFNg, or TILs (leukocyte attack)
 
-So the interaction of interest is perturbation × **environment**. Does knocking
-out gene *X* mean the same thing to a cell sitting alone in a dish as it does
-to a cell under T-cell attack? For some genes the answer is obviously no, and
-those genes are where immune-evasion mechanism lives.
+Note that leukocyte attack on cells likely cause big changes in gene expression that will compete with
+and interact with the CRISPR-KO
 
-Because the assay is CITE-seq, every transcriptional answer has an independent
-protein-level check across a 20-plex surface panel — including the paper's
-headline finding, CD58, whose protein is *not* IFN-γ-induced and whose loss
-spares MHC. That makes it a built-in positive control for RNA/protein
-discordance rather than a curiosity.
+This project is in python using scanpy.  Each AnnData object handles one sparse matrix (and transformations of it).
+MuData will hold both the RNA and ADT layers.
 
 ## Analysis plan
 
@@ -43,15 +42,13 @@ discordance rather than a curiosity.
 Full reasoning, including the design traps, is in
 [`docs/analysis_plan.md`](docs/analysis_plan.md).
 
-## Deliberately out of scope
+### Currently out of scope
 
-- **Perturbation-response prediction** (GEARS, CPA, scGen). A real and
-  interesting problem, and a *different project*. Folding it in here would
-  turn one clean question into two half-answered ones.
+- **Perturbation-response prediction** (GEARS, CPA, scGen).
 - Cross-dataset integration with Norman 2019.
 - Causal / GRN inference from interventional data.
 
-## Setup
+### Setup
 
 ```bash
 conda env create -f environment.yml
@@ -65,7 +62,7 @@ Data comes from the [scPerturb](https://scperturb.org) harmonised release
 across 44 perturbation datasets. Original deposit is Broad Single Cell Portal
 `SCP1064`.
 
-## Configuration
+### Configuration
 
 Everything tunable lives in YAML; nothing is hard-coded in notebooks.
 
@@ -81,9 +78,7 @@ walking up to `config/config.yaml`, so they run from any working directory.
 > `describe_schema()` and `check_schema()` to verify it against the real files.
 > Correct the YAML there, then everything downstream inherits the fix.
 
-## Known limitations
-
-State these plainly rather than burying them:
+### Known limitations
 
 1. **No biological replicates.** DE uses random pseudo-replicate splits of a
    single sample, which gives the negative-binomial model a variance term but
@@ -99,7 +94,7 @@ State these plainly rather than burying them:
    the *signal* for `nb05` — the same fact wearing two hats.
 4. **One patient-derived line.** Nothing here establishes generality.
 
-## Repository layout
+### Repository layout
 
 ```
 config/     YAML configuration (the control surface)
@@ -111,7 +106,57 @@ results/    figures / tables           (gitignored)
 docs/       analysis_plan.md
 ```
 
-## License
+### License
 
 MIT (code). The underlying data is redistributed by scPerturb under CC-BY;
 cite Frangieh et al. 2021 and Peidli et al. 2024 for any reuse.
+
+
+## Part I: data exploration and QC
+schema of .h5ad processed data was explored, naming of columns etc adjusted in config.yaml and panels.yaml
+A power table was constructed to look at number of pseudoreplicates (cells) per {perturbation1 x perturbation2} condition
+
+### Figure 1 — Screen design and cell filtering
+
+![Figure 1](results/figures/01_qc_overview.png)
+
+**(A)** MOI distribution: number of guides detected per cell across all 218k cells.
+Although the screen was designed for low multiplicity, only 58% of cells carry exactly one guide;
+31% carry two or more (up to 19), and 11% have no guide captured (which may be seq depth issue or no guide delivery - they survived puro).
+**(B)** For cells receiving more than one guide: no {perturbation1 x perturbation2} has enough cells to proceed with.
+Gene1 x gene2 comparisons are not feasible in this experimental design.
+**(C)** dataset filtered for cells with MOI=1 (1 guide received). Sufficient power is defined as ~30 cells within
+{perturbation1 x perturbation2} bin.
+**(D)** cell counts for perturbations where n<=30 cells in at least one {perturbation2}.
+**(E)** sgRNA representation within each target {perturbation1}: for a given target, are there multiple guides represented in the data?
+
+Panels A and B describe all cells (218k), since they motivate the filter; C–E describe
+the 126k single-guide cells retained for downstream analysis.
+
+#### Figure 1 conclusions:
+
+Wet lab experimental design caveat: 42% of cells captured are filtered out (MOI not equal to 1; insufficient cell number to do gene x gene comparisons)
+
+sgRNA representation within-target is a small issue, over all.  Though a few targets are dominated by just one sgRNA.
+
+### Figure 2 — Cell-level quality control
+
+![Figure 2](results/figures/01_qc_violins_moi_filter.png)
+
+UMI count, gene count, and mitochondrial and ribosomal fractions, split by
+condition, before **(A)** and after **(B)** restricting to single-guide cells.
+White points mark medians; group sizes are given beneath each violin. UMI and
+gene counts are on log scales.
+
+QC cutoffs (i.e. pct.mito < ~20) determined by scPerturb "harmonised" release.
+These filters can be treated as quality-neutral, since they look the same before and after filtering for single-guide cells.
+
+#### Figure 2 conclusions:
+No further QC filtering on single-guide-cells dataset is warranted at thsi point.
+We **do** expect to see differences in "QC metrics" like pct.mito when we get to comparing TILs to control - the cells are under attach and dying.
+This will need to be handled with biology in mind, conducting analysis downstream.
+
+
+
+
+

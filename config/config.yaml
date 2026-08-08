@@ -165,9 +165,9 @@ plotting:
   cmap_diverging: RdBu_r
   cmap_sequential: viridis
   condition_colors:
-    Control: "#7f7f7f"
-    IFNg: "#d62728"
-    Co-culture: "#1f77b4"
+    Control: "#8A8A8A"
+    IFNγ: "#E5308A"
+    Co-culture: "#4A2545"
 
 # -----------------------------------------------------------------------------
 # Explicitly OUT OF SCOPE (future work -- do not build here)
