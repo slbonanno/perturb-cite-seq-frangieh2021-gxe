@@ -16,7 +16,7 @@ Reanalysis of **Frangieh et al. 2021** Perturb-CITE-seq on a patient-derived mel
 - **readout:** scRNA-seq, 20 ADT panel
 
 #### Processed Dataset:
-- **~218k cells~** immune-checkpoint-resistance / ICR program
+- **218k cells~** immune-checkpoint-resistance / ICR program
 
 #### Data Exploration:
 The interaction of interest is KO target × environment.
@@ -73,10 +73,7 @@ Everything tunable lives in YAML; nothing is hard-coded in notebooks.
 Notebooks read config via `src/config.py`, which resolves the repo root by
 walking up to `config/config.yaml`, so they run from any working directory.
 
-> **Before trusting anything:** the `schema:` block in `config.yaml` is an
-> *assumption* about scPerturb's column names. `nb01` runs
-> `describe_schema()` and `check_schema()` to verify it against the real files.
-> Correct the YAML there, then everything downstream inherits the fix.
+>`nb01` runs `describe_schema()` and `check_schema()` to verify the schema defined in config.yaml against the real files. Needs to be corrected in config if they don't match.  This was done in initial processing, and now corrected in config on Github.
 
 ### Known limitations
 
@@ -156,7 +153,40 @@ No further QC filtering on single-guide-cells dataset is warranted at thsi point
 We **do** expect to see differences in "QC metrics" like pct.mito when we get to comparing TILs to control - the cells are under attach and dying.
 This will need to be handled with biology in mind, conducting analysis downstream.
 
+## Part II: clustering, UMAP, rationale vis-a-vis experimental design
+This dataset is from one cell type: melanoma.  The main predicted axis of variation is perturbation2.  There is also likely to be strong enough signal from cell cycle, and possibly from CRISPR KO of a very key regulatory gene that changes GEX enough to sway clustering (though I think this is less powerful than the first two)
 
+UMAP will be nice, as it helps visualize the changes in GEX induced by perturbation2.  From there, one can overlay other metrics (i.e. pct.ribo), and interpret them with caveats in mind.
 
+Scope:
+1. normalize data, HVG on control guide cells only (perturbation_2 dominates the variance, we want to remove CRISPR effect from clustering which will be measured later).  PCA, neighbors, UMAP
+2. UMAP colored by perturbation2 - predict visible separation on UMAP1 and/or 2.
+3. overlay QC metrics: seq depth, mito, ribo.  Any region driven by these?
+4. cell cyle sorting (scanpy fxn) - overlay on UMAP
+5. T-cell contamination? Dataset is filtered for MOI=1, but droplets with T cells could have ambient guide RNA or doublet with a melanoma cell with a guide
 
+### Figure 3 — Embedding
 
+![Figure 3](results/figures/03_embedding.png)
+
+**(A)** Leiden clusters, resolution 0.3 - judged from the UMAP (visual estimate of number of clusters desired), returns 13 clusters. **(B)** UMAP colored by perturbation_2 (ctrl, IFNg, TIL co-culture) - the 3 macro clusters follow experimental design. **(C)** The 12 CRISPR perturbations whose cells are
+most unevenly distributed across subclusters within their own perturbation_2 condition.
+
+12 of 13 clusters are ≥89% a single perturbation_2 condition. No CRISPR knockout was strong enough to drive a cluster of its own.  In Norman et al. 2019 CRISPRa on K562 cells, overexpression of KLF drove a cluster strongly (master regulator TF)
+
+### Figure 4 — Cluster identity
+
+![Figure 4](results/figures/03_cluster_markers.png)
+
+**(A)** Top 3 markers per cluster, ranked from the data. **(B)** Curated
+marker programs - cluster 12 (557 cells, all from perturbation_2==TIL) is cells with T cell transcripts (probably doublets). 
+
+### Figure 5 — QC and cell-cycle overlays
+
+![Figure 5](results/figures/03_umap_overlays.png)
+
+Standard QC metrics, overlaid on UMAP.  Sequencing depth, gene count, mitochondrial and ribosomal fraction, and cell-cycle phase. Colour ranges are clipped to the 1st–99th
+percentile and points drawn in ascending order so sparse extremes remain
+visible.
+
+In nb01 violins, differences in QC metrics were not striking between the 3 "macro clusters" of perturbation_2.  Thought there was elevated pct.mito in TIL co-culture, as cells are undergoing apoptosis.  Here, there may be a bit more granularity to appreciate in sub-clusters - e.g. pct.ribo seems to roughly mirror cell cycle phase.

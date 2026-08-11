@@ -107,6 +107,8 @@ de:
   # genes computed on control cells only (avoids selecting on the effect).
   signature_gene_set: hvg
   n_hvg: 2000
+  min_cells_per_guide: 10
+  min_guides_per_contrast: 2
 
 # -----------------------------------------------------------------------------
 # Notebook 03 -- context dependence
