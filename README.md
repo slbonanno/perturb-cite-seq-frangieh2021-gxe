@@ -153,7 +153,39 @@ No further QC filtering on single-guide-cells dataset is warranted at thsi point
 We **do** expect to see differences in "QC metrics" like pct.mito when we get to comparing TILs to control - the cells are under attach and dying.
 This will need to be handled with biology in mind, conducting analysis downstream.
 
-## Part II: clustering, UMAP, rationale vis-a-vis experimental design
+## Part II — Validating CRISPR-KO perturbation
+looking at self-RNA and ADT signals - establish that CRISPR-KO worked.
+Mechanism: Cas9 cut (random) causes FS, NMD, lower transcript level.
+
+With 248 CRISPR-KO targets, it could be useful to remove some from analysis (if they didn't achieve sufficient transcript KD) - this would lessen the harshness of multiple comparison testing, but depending how many are removed, this may not have a big impact statistically.
+
+### Figure 3 — Perturbation QC
+
+![Figure 3](results/figures/02_perturbation_qc.png)
+
+**(A)** Self L2FC — simple pseudobulk ratio. Within perturbation_2 condition, by CRISPR-KO target: sum raw cts for KO cells, then cpm. Sum raw cts for ctrl guide cells, then cpm.  simple pseudobulk L2F = log2((CPM_KO + 1) / (CPM_control + 1))
+
+Distribution is shifted negative in all three perturbation_2 conditions; expected for efficacious editing that preceded perturbation_2.
+
+**(B)** RNA vs protein self-knockdown for the 12 targets whose product is in
+the ADT panel.
+
+Note insidious caveats e.g. the HLA_A antibody is clone W6/32; a conformational
+pan-MHC-I epitope requiring β2-microglobulin - no specific for HLA-A!  KO HLA-A still permits antibody detecting other two HLA's: partial loss of signal predicted, assuming no upreg of other HLA in response to CRISPR-KO against HLA-A.
+
+Absence of knockdown is ambiguous under Cas9. In-frame
+indels preserve the transcript, unedited alleles contribute normal message, and
+genes with a premature stop near the 3′ end escape NMD entirely. A target with
+no transcript loss may still be protein-null.
+
+**(C)** Guide concordance (n=3 per CRISPR-KO target).  Per CRISPR-KO target, L2FC was computed between sgRNA, 2, or 3 vs "control guides" (pooled).  Same simple L2FC calculation as in (A).  The line is the median for L2FC for each of the 3 guides; points are individual guides.
+
+Guide spread > 1.0 (n=48) = 2-fold difference between most and least effective guide.  Some variance in how many cells assigned to each guide (see fig. 1E, though not subsetted by perturbation_2 there).  Since Spearman correlation is low (ρ = 0.06) between # cells and guide spread, this variation is coming from KO efficiency, not a power
+artifact. These n=48 genes are flagged rather than removed - other signatures could make these worth considering even though by this measure they are not ideal in the dataset.
+
+**(D)** Rough assessment of statistical power, vis-a-vis sgRNA "n". setting min cells = 10, how many CRISPR-KO targets have at least 2 guides represented (first grouped by perturbation_2)
+
+## Part III: clustering, UMAP, rationale vis-a-vis experimental design
 This dataset is from one cell type: melanoma.  The main predicted axis of variation is perturbation2.  There is also likely to be strong enough signal from cell cycle, and possibly from CRISPR KO of a very key regulatory gene that changes GEX enough to sway clustering (though I think this is less powerful than the first two)
 
 UMAP will be nice, as it helps visualize the changes in GEX induced by perturbation2.  From there, one can overlay other metrics (i.e. pct.ribo), and interpret them with caveats in mind.
@@ -165,25 +197,25 @@ Scope:
 4. cell cyle sorting (scanpy fxn) - overlay on UMAP
 5. T-cell contamination? Dataset is filtered for MOI=1, but droplets with T cells could have ambient guide RNA or doublet with a melanoma cell with a guide
 
-### Figure 3 — Embedding
+### Figure 4 — Embedding
 
-![Figure 3](results/figures/03_embedding.png)
+![Figure 4](results/figures/03_embedding.png)
 
 **(A)** Leiden clusters, resolution 0.3 - judged from the UMAP (visual estimate of number of clusters desired), returns 13 clusters. **(B)** UMAP colored by perturbation_2 (ctrl, IFNg, TIL co-culture) - the 3 macro clusters follow experimental design. **(C)** The 12 CRISPR perturbations whose cells are
 most unevenly distributed across subclusters within their own perturbation_2 condition.
 
 12 of 13 clusters are ≥89% a single perturbation_2 condition. No CRISPR knockout was strong enough to drive a cluster of its own.  In Norman et al. 2019 CRISPRa on K562 cells, overexpression of KLF drove a cluster strongly (master regulator TF)
 
-### Figure 4 — Cluster identity
+### Figure 5 — Cluster identity
 
-![Figure 4](results/figures/03_cluster_markers.png)
+![Figure 5](results/figures/03_cluster_markers.png)
 
 **(A)** Top 3 markers per cluster, ranked from the data. **(B)** Curated
 marker programs - cluster 12 (557 cells, all from perturbation_2==TIL) is cells with T cell transcripts (probably doublets). 
 
-### Figure 5 — QC and cell-cycle overlays
+### Figure 6 — QC and cell-cycle overlays
 
-![Figure 5](results/figures/03_umap_overlays.png)
+![Figure 6](results/figures/03_umap_overlays.png)
 
 Standard QC metrics, overlaid on UMAP.  Sequencing depth, gene count, mitochondrial and ribosomal fraction, and cell-cycle phase. Colour ranges are clipped to the 1st–99th
 percentile and points drawn in ascending order so sparse extremes remain
