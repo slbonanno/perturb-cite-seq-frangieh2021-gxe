@@ -208,3 +208,28 @@ cell_cycle:
     - GAS2L3
     - CBX5
     - CENPA
+
+
+
+adt:
+  annotations:
+    CD274:  "PD-L1: inhibits T cell activation"
+    CD279:  "PD-1: T cell inhibitory receptor"
+    CD119:  "IFNGR1: R for IFN-γ"
+    HLA_A:  "pan-MHC-I (W6/32) - needs β2m"
+    HLA_E:  "HLA-E: non-classical MHC-I, inh NK"
+    CD58:   "LFA-3: costim T/NK via CD2"
+    CD59:   "protectin: blocks cmplmnt membr attack cmplx"
+    CD47:   "binds SIRPα, blocks phagocytosis"
+    CD44:   "hyaluronan R: adhesion, migration — near-ubiquitous"
+    CD29:   "ITGB1: integrin β1, ECM adhesion — near-ubiquitous"
+    CD49f:  "ITGA6: integrin α6, laminin binding"
+    CD61:   "ITGB3: integrin β3, pair w αv for vitronectin"
+    CD9:    "tetraspanin: membrane organiser — broadly expressed"
+    CD117:  "KIT: SCF R, melanocyte lineage"
+    CD184:  "CXCR4: CXCL12 R, migration + homing"
+    CD172a: "SIRPα: binds CD47 — myeloid, not melanoma"
+    CD140a: "PDGFRA: mesenchymal/fibroblast"
+    CD140b: "PDGFRB: pericyte/mesenchymal"
+    CD202b: "TIE2: angiopoietin R, endothelial"
+    CD309:  "KDR/VEGFR2: VEGF R, endothelial"

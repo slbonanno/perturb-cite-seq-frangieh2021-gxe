@@ -222,3 +222,75 @@ percentile and points drawn in ascending order so sparse extremes remain
 visible.
 
 In nb01 violins, differences in QC metrics were not striking between the 3 "macro clusters" of perturbation_2.  Thought there was elevated pct.mito in TIL co-culture, as cells are undergoing apoptosis.  Here, there may be a bit more granularity to appreciate in sub-clusters - e.g. pct.ribo seems to roughly mirror cell cycle phase.
+
+## Part IV: ADT signal QC and overlay on RNA UMAP
+
+QC on ADT:
+1. comparison to isotype controls
+2. clustering + UMAP on ADT, comparison to RNA clusters + UMAP
+
+Four matched isotype controls: Mouse IgG1, IgG2a, IgG2b and Rat IgG2a.
+`adt.var` names which isotype each antibody is matched to.
+
+**Normalisation.** CLR, per cell across all antibodies.
+Note that isotype counts in a single cell are 0–2 reads dominated by
+Poisson noise, so subtracting them from other ADT signal adds variance rather than removing it.
+
+DSB would be preferable since it uses the isotype controls explicitly as a per-cell covariate, but it
+requires empty droplets to estimate ambient background and scPerturb
+redistributes only the filtered cell matrix.
+
+CLR is ok here because every contrast is perturbed-vs-control
+within condition; isotype background is present in both groups and should washout.
+
+### Figure 7 — ADT signal vs matched isotype
+
+![Figure 7](results/figures/04_adt_distributions.png)
+
+CLR distributions for all 20 targets, one panel per isotype family, all cells
+pooled (not binned by perturbation_2). KDE curve over a stepped histogram of the same data.
+Every ADT is 0.44–0.66 CLR above its matched isotype, and varies across clusters.
+
+- **Constitutive** (CD29, CD44, CD47, CD9, HLA_A, CD49f): 95–100% of cells
+  positive, so detection rate cannot vary, but CLR *level* varies
+  substantially between clusters.
+- **Subset** (CD184, CD117, CD140a/b, CD309, CD61, HLA_E, CD279): 26–58%
+  positive, with detection and level structure tracking each other.
+
+### Figure 8 — Cross-modality structure
+
+![Figure 8](results/figures/04_cross_modality.png)
+
+**(A)** ADT-derived Leiden clusters plotted on the RNA-derived embedding.
+**(B)** RNA clusters on the ADT embedding.
+
+While this 20-ADT panel was not designed to differentiate melanoma subtypes, and some
+markers are for e.g. endothelial cells (not present in this sample), surface phenotype carries different
+structure than RNA.  We will do more analysis downstream.
+
+### Figures 9 and 10 — Condition effects on the surface
+
+![Figure 9](results/figures/04_adt_by_condition.png)
+
+![Figure 10](results/figures/04_adt_condition_heatmap.png)
+
+Per-feature CLR by condition, ordered by effect size, with the direction of
+change against control shaded per condition. Dashed line marks the matched
+isotype mean (ADT above this is "real" signal). The heatmap represents the same result, with 
+absolute level on the left (isotype-subtracted, features
+are comparable) and change against control on the right.
+
+No significance testing. At tens of thousands of cells per group every
+comparison returns a vanishing p-value regardless of effect size, and cells
+within a sample are not independent observations. Effect magnitude is reported
+instead.
+
+Two features need reading with care. **HLA_A** is clone W6/32 — a
+conformational pan-MHC-I epitope that binds HLA-A, -B and -C only when the
+heavy chain is folded and β2-microglobulin-bound. The feature name is
+misleading: it reports assembled surface MHC-I across all three loci, and B2M
+loss would collapse it entirely while leaving every heavy-chain transcript
+intact. **CD279** is PD-1, a T-cell receptor, so its co-culture signal partly
+reflects the 577 contaminating lymphocytes identified earlier, rather than
+melanoma biology.
+
