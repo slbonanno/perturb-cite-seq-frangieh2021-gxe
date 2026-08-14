@@ -185,6 +185,12 @@ artifact. These n=48 genes are flagged rather than removed - other signatures co
 
 **(D)** Rough assessment of statistical power, vis-a-vis sgRNA "n". setting min cells = 10, how many CRISPR-KO targets have at least 2 guides represented (first grouped by perturbation_2)
 
+### Figure 4 — RN vs ADT concordance
+
+![Figure 3](results/figures/06_rna_adt_concordance.png)
+
+Using control guide cells only, subsetted by culture condition.  RNA and ADT signal were z-scored and plotted against each other. Mostly good concordance, with some disconnect between protein and RNA levels.
+
 ## Part III: clustering, UMAP, rationale vis-a-vis experimental design
 This dataset is from one cell type: melanoma.  The main predicted axis of variation is perturbation2.  There is also likely to be strong enough signal from cell cycle, and possibly from CRISPR KO of a very key regulatory gene that changes GEX enough to sway clustering (though I think this is less powerful than the first two)
 
@@ -197,23 +203,23 @@ Scope:
 4. cell cyle sorting (scanpy fxn) - overlay on UMAP
 5. T-cell contamination? Dataset is filtered for MOI=1, but droplets with T cells could have ambient guide RNA or doublet with a melanoma cell with a guide
 
-### Figure 4 — Embedding
+### Figure 5 — Embedding
 
-![Figure 4](results/figures/03_embedding.png)
+![Figure 5](results/figures/03_embedding.png)
 
 **(A)** Leiden clusters, resolution 0.3 - judged from the UMAP (visual estimate of number of clusters desired), returns 13 clusters. **(B)** UMAP colored by perturbation_2 (ctrl, IFNg, TIL co-culture) - the 3 macro clusters follow experimental design. **(C)** The 12 CRISPR perturbations whose cells are
 most unevenly distributed across subclusters within their own perturbation_2 condition.
 
 12 of 13 clusters are ≥89% a single perturbation_2 condition. No CRISPR knockout was strong enough to drive a cluster of its own.  In Norman et al. 2019 CRISPRa on K562 cells, overexpression of KLF drove a cluster strongly (master regulator TF)
 
-### Figure 5 — Cluster identity
+### Figure 6 — Cluster identity
 
 ![Figure 5](results/figures/03_cluster_markers.png)
 
 **(A)** Top 3 markers per cluster, ranked from the data. **(B)** Curated
 marker programs - cluster 12 (557 cells, all from perturbation_2==TIL) is cells with T cell transcripts (probably doublets). 
 
-### Figure 6 — QC and cell-cycle overlays
+### Figure 7 — QC and cell-cycle overlays
 
 ![Figure 6](results/figures/03_umap_overlays.png)
 
@@ -243,9 +249,9 @@ redistributes only the filtered cell matrix.
 CLR is ok here because every contrast is perturbed-vs-control
 within condition; isotype background is present in both groups and should washout.
 
-### Figure 7 — ADT signal vs matched isotype
+### Figure 8 — ADT signal vs matched isotype
 
-![Figure 7](results/figures/04_adt_distributions.png)
+![Figure 8](results/figures/04_adt_distributions.png)
 
 CLR distributions for all 20 targets, one panel per isotype family, all cells
 pooled (not binned by perturbation_2). KDE curve over a stepped histogram of the same data.
@@ -257,7 +263,7 @@ Every ADT is 0.44–0.66 CLR above its matched isotype, and varies across cluste
 - **Subset** (CD184, CD117, CD140a/b, CD309, CD61, HLA_E, CD279): 26–58%
   positive, with detection and level structure tracking each other.
 
-### Figure 8 — Cross-modality structure
+### Figure 9 — Cross-modality structure
 
 ![Figure 8](results/figures/04_cross_modality.png)
 
@@ -268,11 +274,11 @@ While this 20-ADT panel was not designed to differentiate melanoma subtypes, and
 markers are for e.g. endothelial cells (not present in this sample), surface phenotype carries different
 structure than RNA.  We will do more analysis downstream.
 
-### Figures 9 and 10 — Condition effects on the surface
+### Figures 10 and 11 — Condition effects on the surface
 
-![Figure 9](results/figures/04_adt_by_condition.png)
+![Figure 10](results/figures/04_adt_by_condition.png)
 
-![Figure 10](results/figures/04_adt_condition_heatmap.png)
+![Figure 11](results/figures/04_adt_condition_heatmap.png)
 
 Per-feature CLR by condition, ordered by effect size, with the direction of
 change against control shaded per condition. Dashed line marks the matched
@@ -293,4 +299,227 @@ loss would collapse it entirely while leaving every heavy-chain transcript
 intact. **CD279** is PD-1, a T-cell receptor, so its co-culture signal partly
 reflects the 577 contaminating lymphocytes identified earlier, rather than
 melanoma biology.
+
+## Part V: DE — building L2FC signature matrix
+
+The core object of the project.
+
+perturbation1 = CRISPR-KO, and DE between these and control guides (within culture condition)
+is the goal.  Since CRISPR vs control is within culture condition, the massive effect of the culture condition should
+be equal in both - the L2FC we use in this table is the marginal effect of the KO, not the condition effect.
+
+Build the DE signature matrices:
+perturbation1-perturbation2 as rows
+genes as columns
+L2FC as values in the table.
+
+### Steps for CRISPR-KO vs control guide Pseudobulk DE, within perturbation_2
+
+Ran all comparisons at once.
+
+**1. Remove contaminating lymphocytes.** The 577 T cells identified in Part II
+were only in the TIL condition, they would distort every
+contrast.  These cells were identified using GEX analysis, post standard filtering.
+Removed and proceeded.
+
+**2. Select genes to use in analysis** variance modeling on control-guide
+cells only, using `seurat_v3` selects 5k genes. Multiple-testing burden is acknowledged,
+but the padj are already soft given the replication structure, blind spots are the tradeoff.
+
+Selecting from control-guides-only cells avoids choosing genes partly on the effects to be measured (circular logic).
+
+**3. Group cells by `perturbation | condition | guide`.** sgRNA is the
+replicate unit. The library carries 3 guides per target, and those are
+genuinely independent perturbation events — different cut sites, different
+off-target profiles, independently infected cells. Random splitting of cells
+would give the model a variance term reflecting only sampling noise.
+
+There are 75 control guides and 3 guides per perturbation.  75 are re-binned into 3 pseudo-replicates
+so DESeq estimates dispersion more equally between control and experimental
+
+**4. Pseudobulk: sum raw counts within each group.** Implemented as a one-hot
+sparse matrix multiply — (groups × cells) indicator matrix times the
+(cells × genes) count matrix — collapsing all pseudobulk groups in one
+operation. Summing raw counts (not averaging normalised values) creates a
+pseudo-bulk sample, the input DESeq2 was designed for. After dropping groups
+below the cell-count minimum, this yielded 667 testable contrasts across 230
+CRISPR targets — not all targets were eligible in all three conditions.
+
+**5. Drop replicates with <10 cells.** Low cell # (~equiv to low seq depth for a bulk replicate)
+produces a profile that is sampling noise. DESeq2 reads that as biological variance and
+inflates the dispersion estimate for the gene (making the test for that gene overly conservative).
+This removed 210 of 2,216 groups.
+
+**6. Drop comparisons with <2 replicates on each side.** Variance is measured within-group, need at least 2 replicates.
+**667 of 711 contrasts qualify, and 215 targets are testable in all three conditions** — the latter is the
+project's effective N for any context-dependence claim.
+
+The TIL samples have the most guide dropout (not enough replicates). Those targets may be resulting in
+increased death - those perturbations may actually be the most interesting to pursue.
+
+**7. Iterate DESeq2 on each perturbation1-perturbation2 group.** `pydeseq2`, design `~perturbation`,
+Cook's-distance refitting on. This is CRISPR vs control, within culture condition.
+
+**8. Bayesian shrinkage of L2FC (included in DESeq2 run).** `lfc_shrink` pulls poorly-estimated log2FCs
+toward zero in proportion to their uncertainty, so a gene with 3 counts and a
+nominal 5-fold change does not outrank a well-measured 2-fold change.
+
+**9. Assemble L2FC mtx.** One row per (perturbation, condition), one column per gene,
+values are shrunken log2FC. Written to `data/processed/05_signatures_lfc.parquet`
+with matching adjusted p-values alongside.
+
+### Figure 12 — Validation of RNA pseudobulk DE
+![Figure 12](results/figures/05_signature_heatmap.png)
+
+Genes chose/grouped by biological relevance (interferon-stimulated genes, MHC-I machinery, checkpoint
+ligands, melanoma-state markers). Self-KD included as controls.
+
+- **JAK/STAT:** (STAT1, JAK1/2, IFNGR1/2) are downstream of IFN-γ. Low in control, up in IFN-stimulated.
+
+## Part VI: ADT DE — Cohen's d signature matrix
+
+ADT counts were CLR-normalised earlier.
+These values are already continuous and log-scaled; we don't fit a count model like in
+DESeq2 for raw counts.
+A simple standardised mean difference works.
+
+For each (perturbation × condition × ADT feature), against
+condition-matched control-guide cells
+**Cohen's d** is the marginal effect of the KO:
+
+    d = (mean_CLR KO cells − mean_CLR ctrl cells) / SD KO + ctrl cells
+
+Dividing by pooled SD puts all 20 antibody counts on a common scale
+despite very different variances (CD44 spans a wide CLR range, CD202b a narrow
+one), so a d of −1 means the same thing for every antibody.
+
+**filter for comparisons with >= 20 cells per (perturbation, condition).**
+
+**assemble ADT CLR Cohen's d mtx.** One row per (perturbation, condition), one column per ADT feature,
+values are Cohen's d. Written to `data/processed/07_adt_signatures.parquet`.
+
+## Part VII: RNA vs ADT profiles, changes in correlation
+
+### Figure [13] — RNA vs protein, per knockout
+
+![quadrant](results/figures/07_adt_quadrant.png)
+
+**(A)** Self-knockdown: for the 12 KO targets whose gene is also in the ADT panel,
+Cohen's d of the knockout on its own surface protein. CD47, CD58, CD59 drop strongly and
+concordantly; CD274 (PD-L1) escalates under IFN-γ, tracking its inducibility.
+
+**(B)** Every (perturbation × feature × condition): RNA log2FC on x, ADT Cohen's d
+on y, both z-scored so the 1:1 diagonal is meaningful but -/+ is not.
+Points on the diagonal mean protein tracked transcript. Below-diagonal = protein buffered against a
+transcript change; above = protein moved without transcript.
+
+opacity = protein effect magnitude
+big black-outlined dots = self-knockdowns.
+Small faint background dots are all the other (perturbation × feature) combinations
+
+### Figure [14] — RNA/protein correlation change, per culture condition?
+
+![concordance shift](results/figures/07_concordance_shift.png)
+
+Pearson r is done on two vectors of equal length.
+Each entry is from one cell, same order of cells in the 2 vectors.
+Either RNA (vector1) or ADT (vector2) values.
+cell subset: by culture condition.
+Control-guide cells only - remove the CRISPR KO layer to this analysis.
+
+Compute Pearson r (RNA vs ADT) for each of the 3 culture conditions.
+Plotting r(Control) against r(IFN-γ) and r(Control)
+against r(co-culture): points off the diagonal are
+features whose transcript/protein coupling is condition-dependent.
+
+Variance in the two vectors is important; correlating two nearly-flat vectors (CD184, CD202b at baseline, looking at RNA) gives unreliable r.
+
+## Part VIII: Context (culture condition) dependence of CRISPR-KO effects
+
+The central question: do knockouts produce *different* effects in different
+immune settings? i.e. IFN, TIL
+
+**input:**  RNA L2FC mtx, marginal effect vs condition-matched ctrl.
+5k genes (columns), perturbation1-perturbation2 as rows.
+
+3 vectors per perturbation1 CRISPR-KO target: one per perturbation_2
+
+### Measuring divergence
+
+**Correlation across conditions — abandoned.** First tried correlating a
+knockout's signature in IFN-γ against its signature in Control. Same effect
+everywhere → high correlation; redirected by environment → low. It failed:
+
+- On all 5k genes, correlations piled up near zero (median 0.016). The ~4,900
+  near-zero "noise genes" drowned the real signal.
+- Filtering to significant genes (padj < 0.05) did not help — the
+  pseudo-replication makes DESeq2 p-values anti-conservative, so a third to
+  two-thirds of the gene set came up "significant" (B2M flagged 1,809
+  responsive genes). The filter passed the noise through because padj are so anti-conservative.
+- Filtering by effect size (|LFC| ≥ 0.5) left too few genes for small-signature
+  knockouts (B2M: 15 genes), and correlation on 15 noisy estimates is unstable.
+
+So cross-condition correlation is only reliable for large-signature knockouts,
+and even there it underperformed. It is not the divergence metric.
+
+**Magnitude (L2 norm) ratio — worked.** For each (knockout, condition):
+
+    magnitude_ratio = ‖signature in condition‖₂ / ‖signature in Control‖₂
+
+computed on all 5,000 genes. It measures how much *larger* the effect is under
+immune pressure than at baseline. Because the L2 norm squares each value, the
+few strongly-moving genes dominate and noise contributes little — stable where
+correlation was not. It captures magnitude only, not direction. Gated on
+n_strong ≥ 30 (genes with |LFC| ≥ 0.5 in either condition) so tiny-signature
+knockouts cannot post spurious ratios.
+
+### Result
+
+Ranked by magnitude_ratio under IFN-γ, the top five are the entire canonical
+JAK/STAT interferon cascade, recovered without being told to look:
+
+| knockout | magnitude ratio (IFN-γ) | n_strong |
+|---|---|---|
+| STAT1  | 8.3 | 405 |
+| IFNGR2 | 8.2 | 370 |
+| JAK2   | 7.8 | 424 |
+| IFNGR1 | 7.1 | 456 |
+| JAK1   | 5.5 | 404 |
+
+Each node of the pathway — ligand receptor (IFNGR1/2), the receptor-associated
+kinases (JAK1/2), the transcription factor (STAT1) — amplifies 5–8× under
+IFN-γ. Knocking any of them out matters enormously when interferon is present
+and barely at all at baseline, because they *are* the interferon response.
+
+The co-culture arm surfaces the same core (TIL killing acts partly through
+secreted IFN-γ) plus a few condition-specific genes — LY96 (TLR4 co-receptor,
+innate sensing), LGALS3BP — that amplify under cellular attack but not under
+cytokine alone. Those are the effects a pure-IFN-γ arm would miss.
+
+### Figure [15] — Context dependence
+
+![context dependence](results/figures/08_context_dependence.png)
+
+**(A)** Cross-condition Pearson r piles up near zero for every knockout —
+the failed metric, shown to justify abandoning it.
+
+**(B)** magnitude_ratio ranks knockouts cleanly; the JAK/STAT cascade tops the
+list under IFN-γ.
+
+**(C)** Per-gene L2FC (KO vs control guide) in Control (x) vs IFN-γ (y).
+STAT1's genes fan vertically off the diagonal — near zero at baseline, strongly
+moved under IFN-γ (amplified). B2M's few genes hug the diagonal — the same
+modest MHC-I effect in both conditions (constitutive). One knockout
+context-dependent, one not.  The L2FC is already computed within perturbation_2;
+these genes are putatively "differentially altered by STAT1-KO, in Control vs IFN conditions".
+
+### Still to do
+
+E-distance as a model-free significance gate — an energy-distance permutation
+test on the cells in PCA space, confirming the top hits are real without
+relying on the DESeq2 model at all. Expected to confirm the JAK/STAT cascade,
+since those signatures are unambiguous.
+
+
+
 
